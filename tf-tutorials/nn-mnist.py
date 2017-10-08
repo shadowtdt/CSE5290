@@ -35,9 +35,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.tensorboard.plugins import projector
 import matplotlib.pyplot as plt
 
-
 FLAGS = None
-
 
 def train():
 
