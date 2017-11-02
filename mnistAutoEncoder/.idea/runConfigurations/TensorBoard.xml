@@ -1,0 +1,28 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="TensorBoard" type="docker-deploy" factoryName="Docker Deployment" singleton="true" server-name="LocalMac">
+    <deployment type="docker-compose.yml" path="$PROJECT_DIR$/docker-compose.yml">
+      <settings>
+        <option name="JSONFilePath" value="" />
+        <option name="command" value="" />
+        <option name="entrypoint" value="" />
+        <option name="envVarsExpanded" value="true" />
+        <option name="linksExpanded" value="true" />
+        <option name="portBindings">
+          <list>
+            <DockerPortBindingImpl>
+              <option name="containerPort" value="6006" />
+              <option name="hostIp" value="" />
+              <option name="hostPort" value="6006" />
+            </DockerPortBindingImpl>
+          </list>
+        </option>
+        <option name="portBindingsExpanded" value="true" />
+        <option name="startBrowserSettings">
+          <browser url="http://127.0.0.1" />
+        </option>
+        <option name="volumeBindingsExpanded" value="true" />
+      </settings>
+    </deployment>
+    <method />
+  </configuration>
+</component>

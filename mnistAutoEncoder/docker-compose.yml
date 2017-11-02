@@ -1,0 +1,16 @@
+version: '2'
+services:
+  tensor2:
+    image: gcr.io/tensorflow/tensorflow
+    ports:
+      - 6006:6006
+
+    stdin_open: true
+    tty: true
+    volumes:
+       - ./summary:/home/summary
+       - ./data:/home/data
+
+    entrypoint:
+      - tensorboard
+      - --logdir=/home/summary
