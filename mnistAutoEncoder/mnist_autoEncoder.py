@@ -8,6 +8,7 @@ import sys
 
 import tensorflow as tf
 from autoEncoder import ae_model_fn
+from convAutoEncoder import conv_ae_model_fn
 
 import numpy as np
 import csv
@@ -16,8 +17,10 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.tensorboard.plugins import projector
 from tensorflow.contrib import factorization as fact, learn as ln
 import matplotlib.pyplot as plt
+from collections import Counter
+import itertools
 
-_HIDDEN_UNITS = int(np.square(12))
+_HIDDEN_UNITS = int(np.square(2))
 
 _RUN_DIR = "logs"
 _SUMMARY_WRITER = None
@@ -96,22 +99,15 @@ def run():
 
 	run_config = ln.RunConfig(save_summary_steps=100, model_dir=_RUN_DIR)
 	ae_params = {"hidden_units": _HIDDEN_UNITS}
-	autoE = tf.estimator.Estimator(model_fn=ae_model_fn, model_dir=_RUN_DIR, params=ae_params, config=run_config)
+	autoE = tf.estimator.Estimator(model_fn=conv_ae_model_fn, model_dir=_RUN_DIR, params=ae_params, config=run_config)
 
 	# TRAIN
-	# Set up logging for predictions
-	# tensors_to_log = {
-	# 	# "labels": "labels",
-	# 	"probabilities": "softmax_tensor"}
-	# logging_hook = tf.train.LoggingTensorHook(
-	# 	tensors=tensors_to_log, every_n_iter=1000)
-
 	train_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(mnist.train.images)},
 		y=np.array(mnist.train.labels),
 		num_epochs=None,
 		shuffle=True)
-	autoE.train(input_fn=train_input_fn, steps=30000, hooks=[])
+	autoE.train(input_fn=train_input_fn, steps=5000, hooks=[])
 
 	# TEST
 	test_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -133,17 +129,21 @@ def run():
 
 	probs = []
 	for p in predictGen:
-		probs.append(list(p["probabilities"]))
+		probs.append(p["encoded"].flatten())
+
+
+
 
 	# K-MEANS
 	full_data_x = probs
 
 	# Parameters
 	num_steps = 30  # Total steps to train
-	k = 1000  # The number of clusters
+	k = 360  # The number of clusters
 	num_classes = 10  # The 10 digits
-	num_features = _HIDDEN_UNITS
+	num_features = len(probs[0])
 
+	print("Number of features: ",num_features)
 	# Input images
 	X = tf.placeholder(tf.float32, shape=[None, num_features])
 	# Labels (for assigning a label to a centroid and testing)
@@ -172,6 +172,7 @@ def run():
 		_, d, idx = sess.run([train_op, avg_distance, cluster_idx], feed_dict={X: full_data_x})
 		if i % 10 == 0 or i == 1:
 			print("Step %i, Avg Distance: %f" % (i, d))
+			# print(Counter(idx))
 
 	# Assign a label to each centroid
 	# Count total number of labels per centroid, using the label of each training
@@ -206,14 +207,14 @@ def run():
 	probs_test = []
 
 	for p in predictGen2:
-		probs_test.append(list(p["probabilities"]))
+		probs_test.append(p["encoded"].flatten())
 
 	accuracy, idx_test, prediction_success = sess.run([accuracy_op, cluster_idx, correct_prediction],
 													  feed_dict={X: probs_test, Y: labels_test})
 	print("Test Accuracy:", accuracy)
 
 	labels_test = np.argmax(labels_test, axis=1)
-	add_embeddings(_CONFIG, images, {"clusterID": idx, "label": labels}, probs, "encoded_embedding")
+	# add_embeddings(_CONFIG, images, {"clusterID": idx, "label": labels}, probs, "encoded_embedding")
 	add_embeddings(_CONFIG, images_test,
 				   {"clusterID": idx_test, "label": labels_test, "correct_prediction": prediction_success}, probs_test,
 				   "encoded_embedding_test")

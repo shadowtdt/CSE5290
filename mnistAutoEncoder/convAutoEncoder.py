@@ -5,6 +5,7 @@ import numpy as np
 _LEARNING_RATE = 0.5
 tf.logging.set_verbosity(tf.logging.INFO)
 
+
 def variable_summaries(var):
 	"""Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
 	with tf.name_scope('summaries'):
@@ -18,23 +19,32 @@ def variable_summaries(var):
 		tf.summary.histogram('histogram', var)
 
 
-def ae_model_fn(features, labels, mode, params):
+def conv_ae_model_fn(features, labels, mode, params):
 	hidden_units = params["hidden_units"]
 	activation_fn = tf.nn.relu
 
-	input_layer = features["x"]
-	# e1 = tf.layers.dense(input_layer, hidden_units*8, activation=tf.nn.relu)
-	# e2 = tf.layers.dense(e1, hidden_units*4, activation=tf.nn.relu)
-	# e3 = tf.layers.dense(input_layer, hidden_units*2, activation=tf.nn.relu)
-	encoded_layer = tf.layers.dense(input_layer, hidden_units, activation=activation_fn, name="encoded_layer")
-	# d1 = tf.layers.dense(encoded_layer, hidden_units*2, activation=tf.nn.relu)
-	# d2 = tf.layers.dense(d1, hidden_units*4, activation=tf.nn.relu)
-	# d3 = tf.layers.dense(d2, hidden_units*8, activation=tf.nn.relu)
-	decoded_layer = tf.layers.dense(encoded_layer, np.size(input_layer, axis=1), activation=tf.nn.softmax)
+	input_layer = tf.reshape(features["x"], [-1, 28, 28, 1])
+	# Encode
+	enConv1 = tf.layers.conv2d(input_layer, 10, 3,activation=activation_fn)
+	enPool1 = tf.layers.max_pooling2d(enConv1, pool_size=3, strides=1, padding="SAME")
+	enConv2 = tf.layers.conv2d(enPool1, 10, 3,activation=activation_fn)
+	enPool2 = tf.layers.max_pooling2d(enConv2, pool_size=3, strides=1, padding="SAME")
+	enConv3 = tf.layers.conv2d(enPool2, 10, 3,activation=activation_fn)
+	enPool3 = tf.layers.max_pooling2d(enConv3, pool_size=3, strides=1, padding="SAME")
 
-	tf.summary.image("image_input", tf.reshape(input_layer, [-1, 28, 28, 1]))
-	tf.summary.image("encoded_image", tf.reshape(encoded_layer, [-1, int(np.sqrt(hidden_units)), int(np.sqrt(hidden_units)), 1]))
-	tf.summary.image("decoded_image", tf.reshape(decoded_layer, [-1, 28, 28, 1]))
+	encoded_layer = tf.layers.dense(enPool3, hidden_units, activation=activation_fn, name="encoded_layer")
+	# Decode
+	deTConv1 = tf.layers.conv2d_transpose(encoded_layer, 10, 3,activation=activation_fn)
+	deTConv2 = tf.layers.conv2d_transpose(deTConv1, 10, 3,activation=activation_fn)
+	deTConv3 = tf.layers.conv2d_transpose(deTConv2, 10, 3,activation=activation_fn)
+
+	decoded_layer = tf.layers.conv2d(deTConv3,1,1,activation=tf.nn.sigmoid)
+
+	# decoded_layer = tf.reshape(deTConv3, [-1, 28, 28, 1])
+
+	tf.summary.image("image_input", input_layer)
+	# tf.summary.image("encoded_image", tf.reshape(encoded_layer, [-1, int(np.sqrt(hidden_units)), int(np.sqrt(hidden_units)), 1]))
+	tf.summary.image("decoded_image", decoded_layer)
 
 	# Reshape output layer to 1-dim Tensor to return predictions
 	predictions = {
