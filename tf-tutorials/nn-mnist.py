@@ -241,7 +241,7 @@ def train():
 				train_writer.add_summary(summary, i)
 				print('Adding run metadata for', i)
 
-				#saver.save(sess, os.path.join(FLAGS.log_dir, "model.ckpt"), i)
+				saver.save(sess, os.path.join(FLAGS.log_dir, "model.ckpt"), i)
 			else:  # Record a summary
 				summary, _ = sess.run([merged, train_step], feed_dict=feed_dict(True))
 				train_writer.add_summary(summary, i)
