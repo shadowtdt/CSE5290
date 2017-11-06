@@ -2,7 +2,6 @@ import tensorflow as tf
 
 import numpy as np
 
-_LEARNING_RATE = 0.5
 tf.logging.set_verbosity(tf.logging.INFO)
 
 def variable_summaries(var):
@@ -19,7 +18,8 @@ def variable_summaries(var):
 
 
 def ae_model_fn(features, labels, mode, params):
-	hidden_units = params["hidden_units"]
+	hidden_units = params.get("hidden_units", 100)
+	learning_rate = params.get("learning_rate", 0.05)
 	activation_fn = tf.nn.relu
 
 	input_layer = features["x"]
@@ -30,10 +30,10 @@ def ae_model_fn(features, labels, mode, params):
 	# d1 = tf.layers.dense(encoded_layer, hidden_units*2, activation=tf.nn.relu)
 	# d2 = tf.layers.dense(d1, hidden_units*4, activation=tf.nn.relu)
 	# d3 = tf.layers.dense(d2, hidden_units*8, activation=tf.nn.relu)
-	decoded_layer = tf.layers.dense(encoded_layer, np.size(input_layer, axis=1), activation=tf.nn.softmax)
+	decoded_layer = tf.layers.dense(encoded_layer, np.size(input_layer, axis=1), activation=tf.nn.relu)
 
 	tf.summary.image("image_input", tf.reshape(input_layer, [-1, 28, 28, 1]))
-	tf.summary.image("encoded_image", tf.reshape(encoded_layer, [-1, int(np.sqrt(hidden_units)), int(np.sqrt(hidden_units)), 1]))
+	#tf.summary.image("encoded_image", tf.reshape(encoded_layer, [-1, int(np.sqrt(hidden_units)), int(np.sqrt(hidden_units)), 1]))
 	tf.summary.image("decoded_image", tf.reshape(decoded_layer, [-1, 28, 28, 1]))
 
 	# Reshape output layer to 1-dim Tensor to return predictions
@@ -62,7 +62,7 @@ def ae_model_fn(features, labels, mode, params):
 
 	# Provide an estimator spec for `ModeKeys.TRAIN`.
 	if mode == tf.estimator.ModeKeys.TRAIN:
-		optimizer = tf.train.AdagradOptimizer(_LEARNING_RATE)
+		optimizer = tf.train.AdagradOptimizer(learning_rate)
 		train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
 		return tf.estimator.EstimatorSpec(
 			mode=mode,

@@ -1,12 +1,9 @@
 import tensorflow as tf
 
-import numpy as np
-
-_LEARNING_RATE = 0.5
 tf.logging.set_verbosity(tf.logging.INFO)
 
-
 def variable_summaries(var):
+
 	"""Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
 	with tf.name_scope('summaries'):
 		mean = tf.reduce_mean(var)
@@ -18,25 +15,27 @@ def variable_summaries(var):
 		tf.summary.scalar('min', tf.reduce_min(var))
 		tf.summary.histogram('histogram', var)
 
-
 def conv_ae_model_fn(features, labels, mode, params):
-	hidden_units = params["hidden_units"]
-	activation_fn = tf.nn.relu
 
+	hidden_units = params.get("hidden_units", 8)
+	learning_rate = params.get("learning_rate", 0.05)
+
+	activation_fn = tf.nn.relu
+	num_features = 10
 	input_layer = tf.reshape(features["x"], [-1, 28, 28, 1])
 	# Encode
-	enConv1 = tf.layers.conv2d(input_layer, 10, 3,activation=activation_fn)
+	enConv1 = tf.layers.conv2d(input_layer, num_features, 3,activation=activation_fn)
 	enPool1 = tf.layers.max_pooling2d(enConv1, pool_size=3, strides=1, padding="SAME")
-	enConv2 = tf.layers.conv2d(enPool1, 10, 3,activation=activation_fn)
-	enPool2 = tf.layers.max_pooling2d(enConv2, pool_size=3, strides=1, padding="SAME")
-	enConv3 = tf.layers.conv2d(enPool2, 10, 3,activation=activation_fn)
-	enPool3 = tf.layers.max_pooling2d(enConv3, pool_size=3, strides=1, padding="SAME")
+	# enConv2 = tf.layers.conv2d(enPool1, 10, 3,activation=activation_fn)
+	# enPool2 = tf.layers.max_pooling2d(enConv2, pool_size=3, strides=1, padding="SAME")
+	# enConv3 = tf.layers.conv2d(enPool2, 10, 3,activation=activation_fn)
+	# enPool3 = tf.layers.max_pooling2d(enConv3, pool_size=3, strides=1, padding="SAME")
 
-	encoded_layer = tf.layers.dense(enPool3, hidden_units, activation=activation_fn, name="encoded_layer")
+	encoded_layer = tf.layers.dense(enPool1, hidden_units, activation=activation_fn, name="encoded_layer")
 	# Decode
-	deTConv1 = tf.layers.conv2d_transpose(encoded_layer, 10, 3,activation=activation_fn)
-	deTConv2 = tf.layers.conv2d_transpose(deTConv1, 10, 3,activation=activation_fn)
-	deTConv3 = tf.layers.conv2d_transpose(deTConv2, 10, 3,activation=activation_fn)
+	# deTConv1 = tf.layers.conv2d_transpose(encoded_layer, 10, 3,activation=activation_fn)
+	# deTConv2 = tf.layers.conv2d_transpose(deTConv1, 10, 3,activation=activation_fn)
+	deTConv3 = tf.layers.conv2d_transpose(encoded_layer, num_features, 3,activation=activation_fn)
 
 	decoded_layer = tf.layers.conv2d(deTConv3,1,1,activation=tf.nn.sigmoid)
 
@@ -72,7 +71,7 @@ def conv_ae_model_fn(features, labels, mode, params):
 
 	# Provide an estimator spec for `ModeKeys.TRAIN`.
 	if mode == tf.estimator.ModeKeys.TRAIN:
-		optimizer = tf.train.AdagradOptimizer(_LEARNING_RATE)
+		optimizer = tf.train.AdagradOptimizer(learning_rate)
 		train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
 		return tf.estimator.EstimatorSpec(
 			mode=mode,

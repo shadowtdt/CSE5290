@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import argparse
 import os
 import sys
@@ -17,18 +13,11 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.tensorboard.plugins import projector
 from tensorflow.contrib import factorization as fact, learn as ln
 import matplotlib.pyplot as plt
-from collections import Counter
-import itertools
-
-_HIDDEN_UNITS = int(np.square(2))
-
-_RUN_DIR = "logs"
-_SUMMARY_WRITER = None
-_CONFIG = projector.ProjectorConfig()
 
 
 def run():
-	def add_embeddings(config, images, label_dict, embedded, name):
+
+	def add_embeddings(config, image_data, label_dict, embedded, name):
 		embedding = tf.Variable(np.array(embedded), name=name)
 
 		embed = config.embeddings.add()
@@ -40,7 +29,7 @@ def run():
 		embed.sprite.single_image_dim.extend([28, 28])
 
 		#  Generate metadata.tsv
-		with open(os.path.join(_RUN_DIR, embed.metadata_path), 'w') as f:
+		with open(os.path.join(tag_dir, embed.metadata_path), 'w') as f:
 			writer = csv.writer(f, delimiter="\t")
 			if len(label_dict.keys()) > 1:
 				writer.writerow(label_dict.keys())
@@ -52,30 +41,30 @@ def run():
 		# 	for index, label in enumerate(labels):
 		# 		f.write("%d\t%d\n" % (index, label))
 
-		to_visualise = images
+		to_visualise = image_data
 		to_visualise = vector_to_matrix_mnist(to_visualise)
 		to_visualise = invert_grayscale(to_visualise)
 
 		sprite_image = create_sprite_image(to_visualise)
 
-		plt.imsave(os.path.join(_RUN_DIR, embed.sprite.image_path), sprite_image, cmap='gray')
+		plt.imsave(os.path.join(tag_dir, embed.sprite.image_path), sprite_image, cmap='gray')
 		plt.imshow(sprite_image, cmap='gray')
 
-	def create_sprite_image(images):
+	def create_sprite_image(image_data):
 		"""Returns a sprite image consisting of images passed as argument. Images should be count x width x height"""
-		if isinstance(images, list):
-			images = np.array(images)
-		img_h = images.shape[1]
-		img_w = images.shape[2]
-		n_plots = int(np.ceil(np.sqrt(images.shape[0])))
+		if isinstance(image_data, list):
+			image_data = np.array(image_data)
+		img_h = image_data.shape[1]
+		img_w = image_data.shape[2]
+		n_plots = int(np.ceil(np.sqrt(image_data.shape[0])))
 
 		spriteimage = np.ones((img_h * n_plots, img_w * n_plots))
 
 		for i in range(n_plots):
 			for j in range(n_plots):
 				this_filter = i * n_plots + j
-				if this_filter < images.shape[0]:
-					this_img = images[this_filter]
+				if this_filter < image_data.shape[0]:
+					this_img = image_data[this_filter]
 					spriteimage[i * img_h:(i + 1) * img_h,
 					j * img_w:(j + 1) * img_w] = this_img
 
@@ -89,17 +78,28 @@ def run():
 		""" Makes black white, and white black """
 		return 1 - mnist_digits
 
-	print("TF Version: ", tf.VERSION)
-	_RUN_DIR = os.path.join(FLAGS.log_dir, "run0")
-	_SUMMARY_WRITER = tf.summary.FileWriter(_RUN_DIR)
+	# Setup
+	tag_dir = os.path.join(FLAGS.log_dir, FLAGS.tag)
+	model = ae_model_fn
+	if FLAGS.convolution:
+		model = conv_ae_model_fn
+	summary_writer = tf.summary.FileWriter(tag_dir)
+	projector_config = projector.ProjectorConfig()
 
+	# MNIST DATA
 	mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True, fake_data=FLAGS.fake_data)
 
-	sess = tf.Session()
+	sess = tf.InteractiveSession()
 
-	run_config = ln.RunConfig(save_summary_steps=100, model_dir=_RUN_DIR)
-	ae_params = {"hidden_units": _HIDDEN_UNITS}
-	autoE = tf.estimator.Estimator(model_fn=conv_ae_model_fn, model_dir=_RUN_DIR, params=ae_params, config=run_config)
+	## Auto Encoder ##
+
+	# Auto Encoder Model setup
+	ae_params = {
+		"hidden_units": FLAGS.encoding_size,
+		"learning_rate": FLAGS.learning_rate
+	}
+	run_config = ln.RunConfig(save_summary_steps=100, model_dir=tag_dir)
+	encoder_model = tf.estimator.Estimator(model_fn=model, model_dir=tag_dir, params=ae_params, config=run_config)
 
 	# TRAIN
 	train_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -107,154 +107,136 @@ def run():
 		y=np.array(mnist.train.labels),
 		num_epochs=None,
 		shuffle=True)
-	autoE.train(input_fn=train_input_fn, steps=5000, hooks=[])
+	encoder_model.train(input_fn=train_input_fn, steps=FLAGS.steps, hooks=[])
 
 	# TEST
 	test_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(mnist.test.images)},
-		y=np.array(mnist.test.labels),  # np.array(mnist.train.labels),
+		y=np.array(mnist.test.labels),
 		shuffle=True)
-	eval = autoE.evaluate(input_fn=test_input_fn)
+	eval = encoder_model.evaluate(input_fn=test_input_fn)
 	print("Loss: %s" % eval["loss"])
 	print("Root Mean Squared Error: %s" % eval["rmse"])
 
-	# PREDICT
+	# PREDICT ~ Generate encoding
 	images = mnist.train.images
 	labels = mnist.train.labels
 	predict_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(images)},
 		y=np.array(labels),
 		shuffle=False)
-	predictGen = autoE.predict(input_fn=predict_input_fn)
+	model_results = encoder_model.predict(input_fn=predict_input_fn)
 
-	probs = []
-	for p in predictGen:
-		probs.append(p["encoded"].flatten())
-
-
+	encoding_train = []
+	for p in model_results:
+		encoding_train.append(p["encoded"].flatten())
 
 
-	# K-MEANS
-	full_data_x = probs
+	## K-MEANS ##
+	kmean_input = encoding_train
 
 	# Parameters
 	num_steps = 30  # Total steps to train
-	k = 360  # The number of clusters
+	num_clusters = FLAGS.num_clusters  # The number of clusters
 	num_classes = 10  # The 10 digits
-	num_features = len(probs[0])
+	num_features = len(encoding_train[0]) # Features based on encoder output
+	print("Number of features: %d" % num_features)
+	print("Number of clusters: %d" % num_clusters)
 
-	print("Number of features: ",num_features)
-	# Input images
+	# Setup
 	X = tf.placeholder(tf.float32, shape=[None, num_features])
-	# Labels (for assigning a label to a centroid and testing)
 	Y = tf.placeholder(tf.float32, shape=[None, num_classes])
 
-	# K-Means Parameters
-	k_means = fact.KMeans(inputs=X, num_clusters=k, distance_metric='cosine', use_mini_batch=True)
-
-	# Build KMeans graph
+	# K-Means Model setup
+	k_means = fact.KMeans(inputs=X, num_clusters=num_clusters, distance_metric='cosine', use_mini_batch=True)
 	(all_scores, cluster_idx, scores, cluster_centers_initialized, init_op, train_op) = k_means.training_graph()
-	cluster_idx = cluster_idx[0]  # fix for cluster_idx being a tuple
+	cluster_idx = cluster_idx[0]
 	avg_distance = tf.reduce_mean(scores)
 
-	# Initialize the variables (i.e. assign their default value)
+	# Init model
 	init_vars = tf.global_variables_initializer()
+	sess.run(init_vars, feed_dict={X: kmean_input})
+	sess.run(init_op, feed_dict={X: kmean_input})
 
-	# Start TensorFlow session
-	# sess = tf.Session()
-
-	# Run the initializer
-	sess.run(init_vars, feed_dict={X: full_data_x})
-	sess.run(init_op, feed_dict={X: full_data_x})
-
-	# Training
+	# TRAIN
 	for i in range(1, num_steps + 1):
-		_, d, idx = sess.run([train_op, avg_distance, cluster_idx], feed_dict={X: full_data_x})
+		_, d, idx = sess.run([train_op, avg_distance, cluster_idx], feed_dict={X: kmean_input})
 		if i % 10 == 0 or i == 1:
 			print("Step %i, Avg Distance: %f" % (i, d))
-			# print(Counter(idx))
+		# print(Counter(idx))
 
-	# Assign a label to each centroid
-	# Count total number of labels per centroid, using the label of each training
-	# sample to their closest centroid (given by 'idx')
+	# TEST
+
+	# Label each cluster based on most common member label
 	labels = np.argmax(labels, axis=1)
-	counts = np.zeros(shape=(k, num_classes))
+	counts = np.zeros(shape=(num_clusters, num_classes))
 	for i in range(len(idx)):
 		counts[idx[i]][labels[i]] += 1
-
-	# Assign the most frequent label to the centroid
 	labels_map = tf.convert_to_tensor([np.argmax(c) for c in counts])
 
-	# Evaluation ops
-	# Lookup: centroid_id -> label
+	# Cluster mapping (cluster id -> digit label)
 	cluster_label = tf.nn.embedding_lookup(labels_map, cluster_idx)
+
 	# Compute accuracy
 	correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(Y, 1), tf.int32))
 	accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-	# Test Model
-	# test_x, test_y = mnist.test.images, mnist.test.labels
-
 	images_test = mnist.test.images
 	labels_test = mnist.test.labels
-	predict_input_fn2 = tf.estimator.inputs.numpy_input_fn(
+	test_input_fun = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(images_test)},
 		y=np.array(labels_test),
-		num_epochs=1,
 		shuffle=False)
-	predictGen2 = autoE.predict(input_fn=predict_input_fn2)
+	model_result = encoder_model.predict(input_fn=test_input_fun)
 
-	probs_test = []
+	encoding_test = []
+	for p in model_result:
+		encoding_test.append(p["encoded"].flatten())
 
-	for p in predictGen2:
-		probs_test.append(p["encoded"].flatten())
+	# Classify with K-Means using auto-encoded features
+	accuracy, idx_test, prediction_success = sess.run([accuracy_op, cluster_idx, correct_prediction], feed_dict={X: encoding_test, Y: labels_test})
+	print("Test Accuracy: %f" % accuracy)
 
-	accuracy, idx_test, prediction_success = sess.run([accuracy_op, cluster_idx, correct_prediction],
-													  feed_dict={X: probs_test, Y: labels_test})
-	print("Test Accuracy:", accuracy)
+	## SAVE
 
-	labels_test = np.argmax(labels_test, axis=1)
-	# add_embeddings(_CONFIG, images, {"clusterID": idx, "label": labels}, probs, "encoded_embedding")
-	add_embeddings(_CONFIG, images_test,
-				   {"clusterID": idx_test, "label": labels_test, "correct_prediction": prediction_success}, probs_test,
-				   "encoded_embedding_test")
+	# Create embeddings for tensorboard
+	if FLAGS.tb_embedding:
+		labels_test = np.argmax(labels_test, axis=1)
+		add_embeddings(projector_config, images, {"clusterID": idx, "label": labels}, encoding_train, "encoded_embedding")
+		add_embeddings(projector_config, images_test, {"clusterID": idx_test, "label": labels_test, "correct_prediction": prediction_success}, encoding_test, "encoded_embedding_test")
 
+	# Save model, events, embeddings
 	sess.run(tf.global_variables_initializer())
-	projector.visualize_embeddings(_SUMMARY_WRITER, _CONFIG)
+	projector.visualize_embeddings(summary_writer, projector_config)
 	saver = tf.train.Saver()
-	saver.save(sess, os.path.join(_RUN_DIR, "model.ckpt"), 0)
+	saver.save(sess, os.path.join(tag_dir, "model.ckpt"), 0)
 
 
-def main(_):
+def main(self):
+	print("TF Version  (Tested with 1.30): ", tf.VERSION)
 	print("Flags:", FLAGS)
+
 	if tf.gfile.Exists(FLAGS.log_dir):
 		tf.gfile.DeleteRecursively(FLAGS.log_dir)
 	tf.gfile.MakeDirs(FLAGS.log_dir)
+
 	run()
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--fake_data', nargs='?', const=True, type=bool,
-						default=False,
-						help='If true, uses fake data for unit testing.')
-	parser.add_argument('--max_steps', type=int, default=1000,
-						help='Number of steps to run trainer.')
-	parser.add_argument('--learning_rate', type=float, default=0.001,
-						help='Initial learning rate')
-	parser.add_argument('--dropout', type=float, default=0.9,
-						help='Keep probability for training dropout.')
-	parser.add_argument(
-		'--data_dir',
-		type=str,
-		default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
-							 'tensorflow/mnist/input_data'),
-		help='Directory for storing input data')
-	parser.add_argument(
-		'--log_dir',
-		type=str,
-		default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
-							 'tensorflow/mnist/logs/mnist_with_summaries'),
-		help='Summaries log directory')
+	# parser.add_argument('--max_steps', type=int, default=1000,help='Number of steps to run trainer.')
+	# parser.add_argument('--dropout', type=float, default=0.9, help='Keep probability for training dropout.')
+	parser.add_argument('--fake_data', nargs='?', const=True, type=bool, default=False, help='If true, uses fake data for unit testing.')
+	parser.add_argument('--data_dir', type=str, default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'), 'tensorflow/mnist/input_data'), help='Directory for storing input data')
+	parser.add_argument('--log_dir', type=str, default="summary", help='Summaries log directory')
+	parser.add_argument('--tag', type=str, default="run0", help='Tag to save results under')
+	parser.add_argument('--tb_embedding', type=bool, default=True, help='If true, generates the projector embeddings for tensorboard')
+	parser.add_argument('--learning_rate', type=float, default=0.04, help='Initial learning rate')
+	parser.add_argument('--encoding_size', type=int, default=144, help='The number of latent features to encode')
+	parser.add_argument('--steps', type=int, default=15000, help='Number of Auto Encoder training steps')
+	parser.add_argument('--num_clusters', type=int, default=360, help='Number of K-Mean clusters')
+	parser.add_argument('--convolution', type=bool, default=False, help='Number of K-Mean clusters')
+
 	FLAGS, unparsed = parser.parse_known_args()
 	tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
