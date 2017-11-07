@@ -41,7 +41,7 @@ def train():
 
 	def generate_embeddings():
 		mnist2 = input_data.read_data_sets(FLAGS.data_dir, one_hot=False, fake_data=FLAGS.fake_data)
-		images, labels = mnist2.train.next_batch(FLAGS.max_steps)
+		images, labels = mnist2.train.images, mnist2.train.labels
 		embedding = tf.Variable(images, name="embedding")
 
 		config = projector.ProjectorConfig()
