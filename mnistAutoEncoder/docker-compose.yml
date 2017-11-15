@@ -1,7 +1,8 @@
 version: '2'
+# Creates a container running tensor board
 services:
   tensor2:
-    image: gcr.io/tensorflow/tensorflow
+    image: tensorflow/tensorflow
     ports:
       - 6006:6006
 
