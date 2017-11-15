@@ -2,19 +2,18 @@ import argparse
 import os
 import sys
 
-import tensorflow as tf
 from autoEncoder import ae_model_fn
 from convAutoEncoder import conv_ae_model_fn
 
 import numpy as np
 import csv
 
+import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.tensorboard.plugins import projector
 from tensorflow.contrib import factorization as fact, learn as ln
-import matplotlib.pyplot as plt
 
-
+import scipy.misc
 def run():
 
 	def add_embeddings(config, image_data, label_dict, embedded, name):
@@ -31,15 +30,10 @@ def run():
 		#  Generate metadata.tsv
 		with open(os.path.join(tag_dir, embed.metadata_path), 'w') as f:
 			writer = csv.writer(f, delimiter="\t")
+			# Add column headers if there are multiple
 			if len(label_dict.keys()) > 1:
 				writer.writerow(label_dict.keys())
 			writer.writerows(zip(*label_dict.values()))
-
-		# #  Generate metadata.tsv
-		# with open(os.path.join(_RUN_DIR,embed.metadata_path), 'w') as f:
-		# 	f.write("Index\tLabel\n")
-		# 	for index, label in enumerate(labels):
-		# 		f.write("%d\t%d\n" % (index, label))
 
 		to_visualise = image_data
 		to_visualise = vector_to_matrix_mnist(to_visualise)
@@ -47,8 +41,8 @@ def run():
 
 		sprite_image = create_sprite_image(to_visualise)
 
-		plt.imsave(os.path.join(tag_dir, embed.sprite.image_path), sprite_image, cmap='gray')
-		plt.imshow(sprite_image, cmap='gray')
+		scipy.misc.toimage(sprite_image, cmin=0.0).save(os.path.join(tag_dir, embed.sprite.image_path))
+
 
 	def create_sprite_image(image_data):
 		"""Returns a sprite image consisting of images passed as argument. Images should be count x width x height"""
@@ -234,7 +228,7 @@ if __name__ == '__main__':
 	parser.add_argument('--tb_embedding', type=bool, default=True, help='If true, generates the projector embeddings for tensorboard')
 	parser.add_argument('--learning_rate', type=float, default=0.04, help='Initial learning rate')
 	parser.add_argument('--encoding_size', type=int, default=144, help='The number of latent features to encode')
-	parser.add_argument('--steps', type=int, default=15000, help='Number of Auto Encoder training steps')
+	parser.add_argument('--steps', type=int, default=5000, help='Number of Auto Encoder training steps')
 	parser.add_argument('--num_clusters', type=int, default=360, help='Number of K-Mean clusters')
 	parser.add_argument('--convolution', type=bool, default=False, help='Number of K-Mean clusters')
 
