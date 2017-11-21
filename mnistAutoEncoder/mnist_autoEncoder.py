@@ -175,8 +175,8 @@ def run():
 	correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(Y, 1), tf.int32))
 	accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-	images_test = mnist.train.images
-	labels_test = mnist.train.labels
+	images_test = mnist.validation.images
+	labels_test = mnist.validation.labels
 	test_input_fun = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(images_test)},
 		y=np.array(labels_test),
