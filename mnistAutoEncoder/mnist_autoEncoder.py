@@ -113,8 +113,8 @@ def run():
 	print("Root Mean Squared Error: %s" % eval["rmse"])
 
 	# PREDICT ~ Generate encoding
-	images = mnist.train.images
-	labels = mnist.train.labels
+	images = mnist.test.images
+	labels = mnist.test.labels
 	predict_input_fn = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(images)},
 		y=np.array(labels),
@@ -175,8 +175,8 @@ def run():
 	correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(Y, 1), tf.int32))
 	accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-	images_test = mnist.test.images
-	labels_test = mnist.test.labels
+	images_test = mnist.train.images
+	labels_test = mnist.train.labels
 	test_input_fun = tf.estimator.inputs.numpy_input_fn(
 		x={"x": np.array(images_test)},
 		y=np.array(labels_test),
@@ -200,7 +200,6 @@ def run():
 		add_embeddings(projector_config, images_test, {"clusterID": idx_test, "label": labels_test, "correct_prediction": prediction_success}, encoding_test, "encoded_embedding_test")
 
 	# Save model, events, embeddings
-	sess.run(tf.global_variables_initializer())
 	projector.visualize_embeddings(summary_writer, projector_config)
 	saver = tf.train.Saver()
 	saver.save(sess, os.path.join(tag_dir, "model.ckpt"), 0)
