@@ -27,7 +27,7 @@ function buildImage()
 file=$1
 image=$2
 echo -e "\n${BOLD}** Building ${image} Docker Image from file ${file} **${NORM}\n"
-docker build -t ${image} -f ${file} .
+sudo docker build -t ${image} -f ${file} .
 }
 
 function saveImage()
@@ -35,7 +35,7 @@ function saveImage()
 image=$1
 output=$2
 echo -e "\n${BOLD}** Saving ${image} Docker image to ${output} **${NORM}\n"
-docker image save -o ${output} ${image}
+sudo docker image save -o ${output} ${image}
 }
 
 echo -e "\n${BOLD}** Preparing Docker Context**${NORM}\n"

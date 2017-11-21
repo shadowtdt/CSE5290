@@ -12,20 +12,20 @@ General installation instructions are
 
 We currently maintain two Docker container images:
 
-* `local/autoencoder:1.0-cpu` - TensorFlow with all dependencies - CPU only!
+* `local/mnist_autoencoder:1.0-cpu` - TensorFlow with all dependencies - CPU only!
 
-* `loca/autoencoder:1.0-gpu` - - TensorFlow with all dependencies and support for NVidia CUDA
+* `loca/mnist_autoencoder:1.0-gpu` - - TensorFlow with all dependencies and support for NVidia CUDA
 
 ## Running the container
 
 Run non-GPU container using
 
-    $ docker run -it -p 6006:6006 local/autoencoder:1.0-cpu
+    $ docker run -it -p 6006:6006 local/mnist_autoencoder:1.0-cpu
 
 For GPU support install NVidia drivers (ideally latest) and
 [nvidia-docker](https://github.com/NVIDIA/nvidia-docker). Run using
 
-    $ nvidia-docker run -it -p 6006:6006 local/autoencoder:1.0-gpu
+    $ nvidia-docker run -it -p 6006:6006 local/mnist_autoencoder:1.0-gpu
 
 
 Note: If you would have a problem running nvidia-docker you may try the old method
