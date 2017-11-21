@@ -27,15 +27,8 @@ For GPU support install NVidia drivers (ideally latest) and
 
     $ nvidia-docker run -it -p 6006:6006 local/mnist_autoencoder:1.0-gpu
 
-
-Note: If you would have a problem running nvidia-docker you may try the old method
-we have used. But it is not recommended. If you find a bug in nvidia-docker, please report
-it there and try using nvidia-docker as described above.
-
-    $ # The old, not recommended way to run docker with gpu support: 
-    $ export CUDA_SO=$(\ls /usr/lib/x86_64-linux-gnu/libcuda.* | xargs -I{} echo '-v {}:{}')
-    $ export DEVICES=$(\ls /dev/nvidia* | xargs -I{} echo '--device {}:{}')
-    $ docker run -it -p 6006:6006 $CUDA_SO $DEVICES local/autoencoder:1.0-
+To change model config, provide the `MODEL_ARGS` env variable to the container. 
+Such as `docker.. -e MODEL_ARGS=--convolution=True `
 
 If you would like to use Tensorboard on your docker container, make sure
 to map the port 6006 of your docker container by adding -p 6006:6006 as shown above.
